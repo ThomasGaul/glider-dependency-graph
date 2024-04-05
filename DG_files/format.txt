@@ -1,0 +1,56 @@
+Process:
+    
+    type-first form:
+        {1-index} {type} {moore neighborhood}
+
+    type keys:
+        -2  ->  unknown
+        -1  ->  1-environment
+         0  ->  partial production
+         1  ->  production
+         2  ->  0-maintenance
+         3  ->  partial descruction
+         4  ->  descruction
+         5  ->  1-maintenance
+
+    neighbor keys:
+        -1  ->  unknown
+         0  ->  off
+         1  ->  on
+         2  ->  don't-care
+
+    type-to-neighbor mapping
+        -2  ->  -1
+        -1  ->   2
+         0  ->   0
+         1  ->   0
+         2  ->   0
+         3  ->   1
+         4  ->   1
+         5  ->   1
+
+    example: corner partial-process
+        1 0 2 2 2 2 0 2 0 1 ==  2  2  2
+                                2  0+ 0
+                                2  0  1
+
+
+Dependency Link:
+
+    {from} {to} {from-cell} {to-cell}
+
+    from-cell keys:
+        from off     ->  0  [0-maintenance or descruction]
+        from on      ->  1  [1-maintenance or production]
+        from 1-e     ->  2  [e.g., either process from partial act the same]
+        
+
+    to-cell keys:   1 2 3
+                    4 5 6
+                    7 8 9
+
+    example 1: block corner to self
+        1 1 0 5
+    
+    example 2: block 1-maintenance to corner
+        13 1 1 9
