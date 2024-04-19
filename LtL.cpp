@@ -54,6 +54,7 @@ Universe::Universe (unsigned ubx, unsigned uby)
 // copy constructor
 Universe::Universe (Universe& u)
 {
+    cout << "check\n";
     ub_x = u.get_xbound();
     ub_y = u.get_ybound();
     lb_x = u.get_xLbound();
@@ -62,13 +63,9 @@ Universe::Universe (Universe& u)
     y_size = ub_y - lb_y;
     random_bias = u.random_bias;
     pattern_load_point = u.pattern_load_point;
+    copy_space(u);
     if (u.get_rules() != NULL)
         rule_set = u.get_rules();
-    {
-        deque<bool> line(x_size,0);
-        shared_ptr<deque<deque<bool>>> buffer(new deque<deque<bool>>(y_size,std::move(line)));
-        space = std::move(buffer);
-    } copy_space(u);
     return;
 }
 
@@ -159,19 +156,12 @@ unsigned Universe::vonNeumann_sum (int x,int y)
 }
 
 
-void Universe::update_private (void)
+void Universe::parallel_update (int low,int high,
+                                unsigned (Universe::*nsum)(int,int)&,
+                                shared_ptr<deque<deque<bool>>>& buffer)
 {
-    // construct pointer to buffer space
-    deque<bool> tmp(x_size,0);
-    unique_ptr<deque<deque<bool>>> buffer(new deque<deque<bool>>(y_size,std::move(tmp)));
-
-    // function pointer to neighborhood type
-    unsigned (Universe::*nsum)(int,int) = NULL;
-    nsum = (rule_set->vonNeumann) ? &Universe::vonNeumann_sum : &Universe::block_sum;
-
-    // update grid
-    for (int y = 0; y < y_size; ++y) {
-        for (int x = 0; x < y_size; ++x) {
+    for (int y = low; y < high; ++y) {
+        for (int x = 0; x < x_size; ++x) {
             unsigned sum = (*this.*nsum)(x,y);
             if ((*space)[y][x] && (sum >= rule_set->survive_min) && (sum <= rule_set->survive_max))
                 (*buffer)[y][x] = 1;
@@ -180,13 +170,44 @@ void Universe::update_private (void)
             else (*buffer)[y][x] = 0;
         }
     }
+    return;
+}
+void Universe::update_private (unsigned cores)
+{
+    // construct pointer to buffer space
+    deque<bool> tmp(x_size,0);
+    shared_ptr<deque<deque<bool>>> buffer(new deque<deque<bool>>(y_size,std::move(tmp)));
+
+    // function pointer to neighborhood type
+    unsigned (Universe::*nsum)(int,int) = NULL;
+    nsum = (rule_set->vonNeumann) ? &Universe::vonNeumann_sum : &Universe::block_sum;
+
+    // update grid serially
+    // if (cores < 2) {
+        for (int y = 0; y < y_size; ++y) {
+            for (int x = 0; x < x_size; ++x) {
+                unsigned sum = (*this.*nsum)(x,y);
+                if ((*space)[y][x] && (sum >= rule_set->survive_min) && (sum <= rule_set->survive_max))
+                    (*buffer)[y][x] = 1;
+                else if (!(*space)[y][x] && (sum >= rule_set->birth_min) && (sum <= rule_set->birth_max))
+                    (*buffer)[y][x] = 1;
+                else (*buffer)[y][x] = 0;
+            }
+        }
+    // }
+    // update grid in parallel
+    /* else {
+        // in progress
+    } */
+    
     space = std::move(buffer);
     return;
 }
 void Universe::update (unsigned n)
 {
-    for (std::size_t t = 0; t < n; ++t)
-        update_private();
+    const auto cores = thread::hardware_concurrency();
+    for (size_t t = 0; t < n; ++t)
+        update_private(cores/2 - 1);
     return;
 }
 

@@ -10,11 +10,12 @@
 #include <deque>
 #include <string>
 #include <cmath>
+#include <thread>
 
 #include "random.h"
 
 using std::vector; using std::deque; using std::string;
-using std::unique_ptr; using std::shared_ptr;
+using std::unique_ptr; using std::shared_ptr; using std::thread;
 
 
 typedef struct rule
@@ -78,8 +79,8 @@ class Universe
     void empty(void);
     void rotate(short);
     void flip(void);
-    void shift(int,int);
-    void shift_with_crop(int,int);
+    void shift(int,int); // not implemented yet
+    void shift_with_crop(int,int); // not implemented yet
     void set(int x, int y, bool val) {(*space)[y-lb_y][x-lb_x] = val;};
     void load_pattern(string filename)
         {ifstream is("Patterns/"+filename+".dat"); load_pattern(is);};
@@ -125,7 +126,8 @@ class Universe
     unsigned density_threshold(int,int);
     
     private:
-    void update_private(void);
+    void update_private(unsigned);
+    void parallel_update(int,int,unsigned (Universe::*nsum)(int,int)&,shared_ptr<deque<deque<bool>>>&);
     unsigned neighborhood_sum(int,int);
     unsigned block_sum(int,int);
     unsigned vonNeumann_sum(int,int);
@@ -146,6 +148,9 @@ class Universe
     vector<int> pattern_load_point;
     RandomState rs;
     float random_bias;
+
+    thread realthread;
+    vector<thread> parallel;
 };
 
 // overload << operator to write universe to file/output
